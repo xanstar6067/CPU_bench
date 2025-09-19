@@ -1,16 +1,16 @@
-﻿using System.Runtime.Intrinsics.X86;
+﻿using System.Management;
+using System.Runtime.Intrinsics.X86;
 using System.Text;
 
 namespace CPU_Benchmark
 {
     /// <summary>
-    /// Предоставляет информацию о процессоре: количество ядер и поддерживаемые наборы инструкций.
+    /// Предоставляет информацию о процессоре: имя, количество ядер и поддерживаемые наборы инструкций.
     /// </summary>
     public class CpuInfoProvider
     {
-        /// <summary>
-        /// Количество логических процессоров в системе.
-        /// </summary>
+        public string CpuName { get; }
+        public int PhysicalCoreCount { get; }
         public int LogicalCoreCount { get; }
 
         /// <summary>
@@ -23,28 +23,51 @@ namespace CPU_Benchmark
         /// </summary>
         public CpuInfoProvider()
         {
-            // Сразу при создании объекта получаем количество ядер
-            LogicalCoreCount = Environment.ProcessorCount;
+            // Устанавливаем значения по умолчанию на случай сбоя WMI
+            CpuName = "N/A";
+            PhysicalCoreCount = 0;
+            LogicalCoreCount = Environment.ProcessorCount; // Старый надежный способ как fallback
+
+            try
+            {
+                // Используем WMI для получения детальной информации о процессоре
+                var searcher = new ManagementObjectSearcher("select * from Win32_Processor");
+                foreach (var obj in searcher.Get())
+                {
+                    CpuName = obj["Name"]?.ToString()?.Trim() ?? "N/A";
+                    PhysicalCoreCount = Convert.ToInt32(obj["NumberOfCores"]);
+                    LogicalCoreCount = Convert.ToInt32(obj["NumberOfLogicalProcessors"]);
+                    break; // В большинстве систем один объект процессора
+                }
+            }
+            catch
+            {
+                // Если WMI не сработал, останутся значения по умолчанию
+            }
 
             // И формируем информационную строку
-            FullCpuInfoString = BuildInstructionSetString();
+            FullCpuInfoString = BuildCpuInfoString();
         }
 
         /// <summary>
-        /// Собирает информацию о поддерживаемых инструкциях и форматирует её в строку.
+        /// Собирает всю информацию о ЦП и форматирует её в строку.
         /// </summary>
         /// <returns>Отформатированная строка с информацией о ЦП.</returns>
-        private string BuildInstructionSetString()
+        private string BuildCpuInfoString()
         {
             var sb = new StringBuilder();
 
-            sb.AppendLine($"Логические процессоры (потоки):\t{LogicalCoreCount}");
+            sb.AppendLine("Процессор (ЦП)");
             sb.AppendLine("-----------------------------------------");
+            sb.AppendLine($"Название:         \t{CpuName}");
+            sb.AppendLine($"Физические ядра:    \t{PhysicalCoreCount}");
+            sb.AppendLine($"Логические потоки:\t{LogicalCoreCount}");
+            sb.AppendLine();
             sb.AppendLine("Поддерживаемые наборы инструкций (x86/x64)");
             sb.AppendLine("-----------------------------------------");
 
             // Использование \t (табуляция) поможет выровнять вывод 
-            // в TextBox, если у него моноширинный шрифт (я установил Consolas в дизайнере).
+            // в TextBox, если у него моноширинный шрифт (у вас Consolas).
             sb.AppendLine($"SSE:        \t{Sse.IsSupported}");
             sb.AppendLine($"SSE2:       \t{Sse2.IsSupported}");
             sb.AppendLine($"SSE3:       \t{Sse3.IsSupported}");
