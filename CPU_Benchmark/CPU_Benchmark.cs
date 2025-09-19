@@ -6,14 +6,9 @@ namespace CPU_Benchmark
     {
         #region Fields & Class Members
 
-        // Наши модули с логикой.
         private readonly CpuInfoProvider _cpuInfoProvider;
         private readonly BenchmarkRunner _benchmarkRunner;
-
-        // Словарь для удобного сопоставления enum'а и текста в ComboBox.
         private readonly Dictionary<BenchmarkType, string> _testTypes;
-
-        // Источник токена для отмены теста. Null, когда тест не запущен.
         private CancellationTokenSource? _cancellationTokenSource;
 
         #endregion
@@ -24,11 +19,9 @@ namespace CPU_Benchmark
         {
             InitializeComponent();
 
-            // Инициализируем наши модули.
             _cpuInfoProvider = new CpuInfoProvider();
             _benchmarkRunner = new BenchmarkRunner();
 
-            // Заполняем словарь с названиями тестов.
             _testTypes = new Dictionary<BenchmarkType, string>
             {
                 { BenchmarkType.Integer, "Целочисленные операции" },
@@ -36,7 +29,6 @@ namespace CPU_Benchmark
                 { BenchmarkType.VectorAvx2, "Векторные операции (AVX2)" }
             };
 
-            // Подписываемся на события.
             this.Load += OnFormLoad;
             btnStartTest.Click += OnStartTestClick;
             btnStopTest.Click += OnStopTestClick;
@@ -44,22 +36,16 @@ namespace CPU_Benchmark
 
         private void OnFormLoad(object? sender, EventArgs e)
         {
-            // 1. Выводим информацию о процессоре.
             txtCpuInfo.Text = _cpuInfoProvider.FullCpuInfoString;
-
-            // 2. Настраиваем NumericUpDown для выбора количества потоков.
             numericThreads.Maximum = _cpuInfoProvider.LogicalCoreCount;
             numericThreads.Value = _cpuInfoProvider.LogicalCoreCount;
 
-            // 3. Заполняем ComboBox доступными тестами.
             comboTestType.DataSource = new BindingSource(_testTypes, null);
             comboTestType.DisplayMember = "Value";
             comboTestType.ValueMember = "Key";
 
-            // Удаляем опцию AVX2, если она не поддерживается.
             if (!Avx2.IsSupported)
             {
-                // Безопасное удаление из источника данных.
                 if (comboTestType.Items.Count > 0 && _testTypes.ContainsKey(BenchmarkType.VectorAvx2))
                 {
                     ((BindingSource)comboTestType.DataSource).Remove(new KeyValuePair<BenchmarkType, string>(BenchmarkType.VectorAvx2, _testTypes[BenchmarkType.VectorAvx2]));
@@ -73,52 +59,72 @@ namespace CPU_Benchmark
 
         private async void OnStartTestClick(object? sender, EventArgs e)
         {
-            // Получаем выбранные настройки из UI.
+            // Получаем общие настройки из UI
             var selectedTest = (BenchmarkType)comboTestType.SelectedValue;
             var threadCount = (int)numericThreads.Value;
-            bool useAffinity = chkForceAffinity.Checked; // <-- Проверяем галочку
+            var useAffinity = chkForceAffinity.Checked;
+            var isBenchmark = rbModeBenchmark.Checked;
 
-            _cancellationTokenSource = new CancellationTokenSource();
-
-            // Обновляем UI для состояния "в работе".
-            SetUiState(isTestRunning: true);
+            // Обновляем UI для состояния "в работе"
+            SetUiState(isTestRunning: true, isBenchmarkMode: isBenchmark);
 
             try
             {
-                // В зависимости от галочки, вызываем нужный метод
-                if (useAffinity)
+                if (isBenchmark)
                 {
-                    txtResults.Text = $"Запуск теста с привязкой к {threadCount} ядрам...";
-                    await _benchmarkRunner.RunStressTestWithAffinityAsync(selectedTest, threadCount, _cancellationTokenSource.Token);
+                    // --- РЕЖИМ БЕНЧМАРКА ---
+                    txtResults.Text = "Выполняется бенчмарк, пожалуйста, подождите...";
+
+                    // Асинхронно запускаем бенчмарк и ждем его результат
+                    BenchmarkResult result;
+                    if (useAffinity)
+                    {
+                        result = await _benchmarkRunner.RunBenchmarkWithAffinityAsync(selectedTest, threadCount);
+                    }
+                    else
+                    {
+                        result = await _benchmarkRunner.RunBenchmarkAsync(selectedTest, threadCount);
+                    }
+
+                    // Отображаем отформатированный результат
+                    txtResults.Text = result.ToString();
+                    lblStatus.Text = "Бенчмарк завершен.";
                 }
                 else
                 {
-                    txtResults.Text = $"Запуск теста на {threadCount} потоках (без привязки)...";
-                    await _benchmarkRunner.RunStressTestAsync(selectedTest, threadCount, _cancellationTokenSource.Token);
-                }
+                    // --- РЕЖИМ СТРЕСС-ТЕСТА ---
+                    _cancellationTokenSource = new CancellationTokenSource();
 
-                // Это выполнится, если тест был отменен пользователем.
-                txtResults.Text += Environment.NewLine + "Тест успешно остановлен.";
+                    txtResults.Text = "Стресс-тест запущен...";
+                    if (useAffinity)
+                    {
+                        await _benchmarkRunner.RunStressTestWithAffinityAsync(selectedTest, threadCount, _cancellationTokenSource.Token);
+                    }
+                    else
+                    {
+                        await _benchmarkRunner.RunStressTestAsync(selectedTest, threadCount, _cancellationTokenSource.Token);
+                    }
+
+                    txtResults.Text += Environment.NewLine + "Тест успешно остановлен.";
+                }
             }
             catch (Exception ex)
             {
-                // ... (остальной код без изменений)
                 MessageBox.Show($"Во время теста произошла ошибка: {ex.Message}", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 txtResults.Text = $"Ошибка: {ex.Message}";
             }
             finally
             {
-                // ... (остальной код без изменений)
-                SetUiState(isTestRunning: false);
-                _cancellationTokenSource.Dispose();
+                // В любом случае возвращаем UI в исходное состояние
+                SetUiState(isTestRunning: false, isBenchmarkMode: isBenchmark);
+                _cancellationTokenSource?.Dispose();
                 _cancellationTokenSource = null;
             }
         }
 
-
         private void OnStopTestClick(object? sender, EventArgs e)
         {
-            // Отправляем сигнал отмены запущенному тесту.
+            // Отправляем сигнал отмены. Актуально только для стресс-теста.
             _cancellationTokenSource?.Cancel();
         }
 
@@ -129,7 +135,7 @@ namespace CPU_Benchmark
         /// <summary>
         /// Вспомогательный метод для переключения состояния элементов управления.
         /// </summary>
-        private void SetUiState(bool isTestRunning)
+        private void SetUiState(bool isTestRunning, bool isBenchmarkMode)
         {
             if (isTestRunning)
             {
@@ -145,8 +151,11 @@ namespace CPU_Benchmark
             }
 
             groupBoxSettings.Enabled = !isTestRunning;
+            groupBoxMode.Enabled = !isTestRunning;
             btnStartTest.Enabled = !isTestRunning;
-            btnStopTest.Enabled = isTestRunning;
+
+            // Кнопка СТОП активна, только если запущен тест, и это НЕ бенчмарк
+            btnStopTest.Enabled = isTestRunning && !isBenchmarkMode;
         }
 
         #endregion
