@@ -39,6 +39,9 @@
             groupBoxControls = new GroupBox();
             btnStopTest = new Button();
             btnStartTest = new Button();
+            groupBoxMode = new GroupBox();
+            rbModeStress = new RadioButton();
+            rbModeBenchmark = new RadioButton();
             groupBoxSettings = new GroupBox();
             chkForceAffinity = new CheckBox();
             numericThreads = new NumericUpDown();
@@ -50,6 +53,7 @@
             panelLeft.SuspendLayout();
             groupBoxResults.SuspendLayout();
             groupBoxControls.SuspendLayout();
+            groupBoxMode.SuspendLayout();
             groupBoxSettings.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)numericThreads).BeginInit();
             SuspendLayout();
@@ -66,7 +70,7 @@
             tableLayoutPanelMain.Name = "tableLayoutPanelMain";
             tableLayoutPanelMain.RowCount = 1;
             tableLayoutPanelMain.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            tableLayoutPanelMain.Size = new Size(884, 561);
+            tableLayoutPanelMain.Size = new Size(884, 601);
             tableLayoutPanelMain.TabIndex = 0;
             // 
             // groupBoxSystemInfo
@@ -76,7 +80,7 @@
             groupBoxSystemInfo.Location = new Point(323, 3);
             groupBoxSystemInfo.Name = "groupBoxSystemInfo";
             groupBoxSystemInfo.Padding = new Padding(10);
-            groupBoxSystemInfo.Size = new Size(558, 555);
+            groupBoxSystemInfo.Size = new Size(558, 595);
             groupBoxSystemInfo.TabIndex = 1;
             groupBoxSystemInfo.TabStop = false;
             groupBoxSystemInfo.Text = "Информация о системе";
@@ -90,7 +94,7 @@
             txtCpuInfo.Name = "txtCpuInfo";
             txtCpuInfo.ReadOnly = true;
             txtCpuInfo.ScrollBars = ScrollBars.Vertical;
-            txtCpuInfo.Size = new Size(538, 519);
+            txtCpuInfo.Size = new Size(538, 559);
             txtCpuInfo.TabIndex = 0;
             txtCpuInfo.Text = "Определение параметров процессора...";
             // 
@@ -98,11 +102,12 @@
             // 
             panelLeft.Controls.Add(groupBoxResults);
             panelLeft.Controls.Add(groupBoxControls);
+            panelLeft.Controls.Add(groupBoxMode);
             panelLeft.Controls.Add(groupBoxSettings);
             panelLeft.Dock = DockStyle.Fill;
             panelLeft.Location = new Point(3, 3);
             panelLeft.Name = "panelLeft";
-            panelLeft.Size = new Size(314, 555);
+            panelLeft.Size = new Size(314, 595);
             panelLeft.TabIndex = 2;
             // 
             // groupBoxResults
@@ -111,22 +116,23 @@
             groupBoxResults.Controls.Add(txtResults);
             groupBoxResults.Controls.Add(lblStatus);
             groupBoxResults.Controls.Add(progressBarTest);
-            groupBoxResults.Location = new Point(9, 348);
+            groupBoxResults.Location = new Point(9, 420);
             groupBoxResults.Name = "groupBoxResults";
-            groupBoxResults.Size = new Size(296, 198);
-            groupBoxResults.TabIndex = 2;
+            groupBoxResults.Size = new Size(296, 166);
+            groupBoxResults.TabIndex = 3;
             groupBoxResults.TabStop = false;
             groupBoxResults.Text = "Выполнение и результат";
             // 
             // txtResults
             // 
             txtResults.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            txtResults.Font = new Font("Consolas", 9.75F);
             txtResults.Location = new Point(15, 87);
             txtResults.Multiline = true;
             txtResults.Name = "txtResults";
             txtResults.ReadOnly = true;
             txtResults.ScrollBars = ScrollBars.Vertical;
-            txtResults.Size = new Size(266, 96);
+            txtResults.Size = new Size(266, 64);
             txtResults.TabIndex = 2;
             // 
             // lblStatus
@@ -151,10 +157,10 @@
             groupBoxControls.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             groupBoxControls.Controls.Add(btnStopTest);
             groupBoxControls.Controls.Add(btnStartTest);
-            groupBoxControls.Location = new Point(9, 215);
+            groupBoxControls.Location = new Point(9, 287);
             groupBoxControls.Name = "groupBoxControls";
             groupBoxControls.Size = new Size(296, 127);
-            groupBoxControls.TabIndex = 1;
+            groupBoxControls.TabIndex = 2;
             groupBoxControls.TabStop = false;
             groupBoxControls.Text = "Управление";
             // 
@@ -180,6 +186,40 @@
             btnStartTest.TabIndex = 0;
             btnStartTest.Text = "НАЧАТЬ ТЕСТ";
             btnStartTest.UseVisualStyleBackColor = true;
+            // 
+            // groupBoxMode
+            // 
+            groupBoxMode.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            groupBoxMode.Controls.Add(rbModeStress);
+            groupBoxMode.Controls.Add(rbModeBenchmark);
+            groupBoxMode.Location = new Point(9, 215);
+            groupBoxMode.Name = "groupBoxMode";
+            groupBoxMode.Size = new Size(296, 66);
+            groupBoxMode.TabIndex = 1;
+            groupBoxMode.TabStop = false;
+            groupBoxMode.Text = "Режим";
+            // 
+            // rbModeStress
+            // 
+            rbModeStress.AutoSize = true;
+            rbModeStress.Location = new Point(158, 28);
+            rbModeStress.Name = "rbModeStress";
+            rbModeStress.Size = new Size(89, 19);
+            rbModeStress.TabIndex = 1;
+            rbModeStress.Text = "Стресс-тест";
+            rbModeStress.UseVisualStyleBackColor = true;
+            // 
+            // rbModeBenchmark
+            // 
+            rbModeBenchmark.AutoSize = true;
+            rbModeBenchmark.Checked = true;
+            rbModeBenchmark.Location = new Point(15, 28);
+            rbModeBenchmark.Name = "rbModeBenchmark";
+            rbModeBenchmark.Size = new Size(83, 19);
+            rbModeBenchmark.TabIndex = 0;
+            rbModeBenchmark.TabStop = true;
+            rbModeBenchmark.Text = "Бенчмарк";
+            rbModeBenchmark.UseVisualStyleBackColor = true;
             // 
             // groupBoxSettings
             // 
@@ -250,9 +290,9 @@
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(884, 561);
+            ClientSize = new Size(884, 601);
             Controls.Add(tableLayoutPanelMain);
-            MinimumSize = new Size(750, 550);
+            MinimumSize = new Size(750, 640);
             Name = "CPU_Benchmark";
             Text = "CPU Benchmark Tool (.NET 8)";
             tableLayoutPanelMain.ResumeLayout(false);
@@ -262,6 +302,8 @@
             groupBoxResults.ResumeLayout(false);
             groupBoxResults.PerformLayout();
             groupBoxControls.ResumeLayout(false);
+            groupBoxMode.ResumeLayout(false);
+            groupBoxMode.PerformLayout();
             groupBoxSettings.ResumeLayout(false);
             groupBoxSettings.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)numericThreads).EndInit();
@@ -287,5 +329,8 @@
         private Label lblStatus;
         private TextBox txtResults;
         private CheckBox chkForceAffinity;
+        private GroupBox groupBoxMode;
+        private RadioButton rbModeStress;
+        private RadioButton rbModeBenchmark;
     }
 }
