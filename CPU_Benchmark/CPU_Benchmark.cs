@@ -76,6 +76,7 @@ namespace CPU_Benchmark
             // Получаем выбранные настройки из UI.
             var selectedTest = (BenchmarkType)comboTestType.SelectedValue;
             var threadCount = (int)numericThreads.Value;
+            bool useAffinity = chkForceAffinity.Checked; // <-- Проверяем галочку
 
             _cancellationTokenSource = new CancellationTokenSource();
 
@@ -84,26 +85,36 @@ namespace CPU_Benchmark
 
             try
             {
-                // Асинхронно запускаем тест и ждем его завершения.
-                await _benchmarkRunner.RunStressTestAsync(selectedTest, threadCount, _cancellationTokenSource.Token);
+                // В зависимости от галочки, вызываем нужный метод
+                if (useAffinity)
+                {
+                    txtResults.Text = $"Запуск теста с привязкой к {threadCount} ядрам...";
+                    await _benchmarkRunner.RunStressTestWithAffinityAsync(selectedTest, threadCount, _cancellationTokenSource.Token);
+                }
+                else
+                {
+                    txtResults.Text = $"Запуск теста на {threadCount} потоках (без привязки)...";
+                    await _benchmarkRunner.RunStressTestAsync(selectedTest, threadCount, _cancellationTokenSource.Token);
+                }
 
                 // Это выполнится, если тест был отменен пользователем.
-                txtResults.Text = "Тест успешно остановлен.";
+                txtResults.Text += Environment.NewLine + "Тест успешно остановлен.";
             }
             catch (Exception ex)
             {
-                // Ловим любые ошибки, например, NotSupportedException.
+                // ... (остальной код без изменений)
                 MessageBox.Show($"Во время теста произошла ошибка: {ex.Message}", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 txtResults.Text = $"Ошибка: {ex.Message}";
             }
             finally
             {
-                // В любом случае (успех, отмена, ошибка) возвращаем UI в исходное состояние.
+                // ... (остальной код без изменений)
                 SetUiState(isTestRunning: false);
                 _cancellationTokenSource.Dispose();
                 _cancellationTokenSource = null;
             }
         }
+
 
         private void OnStopTestClick(object? sender, EventArgs e)
         {
