@@ -11,7 +11,7 @@ namespace CPU_Benchmark
         private readonly CpuInfoProvider _cpuInfoProvider;
         private readonly BenchmarkRunner _benchmarkRunner;
         // Модуль для мониторинга температуры
-        private readonly TemperatureMonitor _tempMonitor;
+        private readonly SystemMonitor _tempMonitor;
 
         // Словарь для удобного сопоставления enum'а и текста в ComboBox.
         // Содержит все возможные тесты.
@@ -36,7 +36,7 @@ namespace CPU_Benchmark
             // Инициализируем наши модули.
             _cpuInfoProvider = new CpuInfoProvider();
             _benchmarkRunner = new BenchmarkRunner();
-            _tempMonitor = new TemperatureMonitor();
+            _tempMonitor = new SystemMonitor();
 
             // Заполняем словарь со всеми возможными названиями тестов.
             _testTypes = new Dictionary<BenchmarkType, string>
