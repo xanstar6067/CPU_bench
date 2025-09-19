@@ -9,13 +9,13 @@ namespace CPU_Benchmark
     {
         #region Constants for Benchmark
 
-        // Базовое количество операций для одного потока в режиме бенчмарка.
+        // Базовое количество операций для одного потока для простых тестов.
         // Выбрано так, чтобы тест длился несколько секунд на среднем процессоре.
         private const long BASE_OPERATIONS_PER_THREAD = 5_000_000_000L;
 
-        // AVX инструкции выполняются намного быстрее, поэтому для них нужно больше операций,
-        // чтобы тест не закончился мгновенно.
-        private const long AVX_OPERATIONS_PER_THREAD = 20_000_000_000L;
+        // Векторные и специализированные инструкции выполняются намного быстрее, 
+        // поэтому для них нужно больше операций, чтобы тест не закончился мгновенно.
+        private const long ADVANCED_OPERATIONS_PER_THREAD = 20_000_000_000L;
 
         #endregion
 
@@ -75,17 +75,12 @@ namespace CPU_Benchmark
         /// </summary>
         private async Task<BenchmarkResult?> RunTestInternal(BenchmarkType type, int threadCount, CancellationToken token, bool forceAffinity, bool isBenchmark)
         {
-            if (type == BenchmarkType.VectorAvx2 && !Avx2.IsSupported)
-            {
-                throw new NotSupportedException("AVX2 инструкции не поддерживаются данным процессором.");
-            }
-
             var stopwatch = new Stopwatch();
             long totalOperations = 0;
 
             await Task.Run(() =>
             {
-                long opsPerThread = (type == BenchmarkType.VectorAvx2) ? AVX_OPERATIONS_PER_THREAD : BASE_OPERATIONS_PER_THREAD;
+                long opsPerThread = GetOperationsForTestType(type);
                 if (isBenchmark)
                 {
                     totalOperations = opsPerThread * threadCount;
@@ -102,7 +97,6 @@ namespace CPU_Benchmark
                             SetThreadAffinity(coreIndex);
                         }
 
-                        // Выполняем либо бенчмарк, либо стресс-тест
                         if (isBenchmark)
                             ExecuteBenchmarkLoop(type, opsPerThread);
                         else
@@ -145,7 +139,7 @@ namespace CPU_Benchmark
             }
             catch (Exception)
             {
-                // Игнорируем ошибки привязки
+                // Игнорируем ошибки привязки, если что-то пошло не так
             }
         }
 
@@ -157,7 +151,22 @@ namespace CPU_Benchmark
                           .FirstOrDefault(pt => pt.Id == nativeThreadId);
         }
 
-        // --- Методы-диспетчеры для циклов ---
+        private long GetOperationsForTestType(BenchmarkType type)
+        {
+            switch (type)
+            {
+                case BenchmarkType.Integer:
+                case BenchmarkType.FloatingPoint:
+                    return BASE_OPERATIONS_PER_THREAD;
+
+                case BenchmarkType.VectorSse2:
+                case BenchmarkType.VectorAvx2:
+                case BenchmarkType.VectorFma:
+                case BenchmarkType.CryptoAes:
+                default:
+                    return ADVANCED_OPERATIONS_PER_THREAD;
+            }
+        }
 
         private void ExecuteStressLoop(BenchmarkType type, CancellationToken token)
         {
@@ -165,7 +174,10 @@ namespace CPU_Benchmark
             {
                 case BenchmarkType.Integer: IntegerStressLoop(token); break;
                 case BenchmarkType.FloatingPoint: FloatStressLoop(token); break;
-                case BenchmarkType.VectorAvx2: AvxStressLoop(token); break;
+                case BenchmarkType.VectorSse2: Sse2StressLoop(token); break;
+                case BenchmarkType.VectorAvx2: Avx2StressLoop(token); break;
+                case BenchmarkType.VectorFma: FmaStressLoop(token); break;
+                case BenchmarkType.CryptoAes: AesStressLoop(token); break;
             }
         }
 
@@ -175,52 +187,32 @@ namespace CPU_Benchmark
             {
                 case BenchmarkType.Integer: IntegerBenchmarkLoop(operations); break;
                 case BenchmarkType.FloatingPoint: FloatBenchmarkLoop(operations); break;
-                case BenchmarkType.VectorAvx2: AvxBenchmarkLoop(operations); break;
+                case BenchmarkType.VectorSse2: Sse2BenchmarkLoop(operations); break;
+                case BenchmarkType.VectorAvx2: Avx2BenchmarkLoop(operations); break;
+                case BenchmarkType.VectorFma: FmaBenchmarkLoop(operations); break;
+                case BenchmarkType.CryptoAes: AesBenchmarkLoop(operations); break;
             }
         }
 
         // --- Циклы для СТРЕСС-ТЕСТА (бесконечные) ---
 
-        private void IntegerStressLoop(CancellationToken token)
-        {
-            long a = 123456789012345;
-            long b = 987654321098765;
-            while (!token.IsCancellationRequested) { a ^= b; b = (a << 3) | (b >> 61); a = ~a; }
-        }
-
-        private void FloatStressLoop(CancellationToken token)
-        {
-            double a = Math.PI;
-            while (!token.IsCancellationRequested) { a += Math.Sin(a) + Math.Cos(a) + Math.Tan(a); }
-        }
-
-        private void AvxStressLoop(CancellationToken token)
-        {
-            var vec1 = Vector256.Create(1.1f); var vec2 = Vector256.Create(2.2f);
-            while (!token.IsCancellationRequested) { var addResult = Avx.Add(vec1, vec2); var mulResult = Avx.Multiply(addResult, vec1); vec1 = Avx.Subtract(mulResult, vec2); }
-        }
+        private void IntegerStressLoop(CancellationToken token) { long a = 1, b = 2; while (!token.IsCancellationRequested) { a ^= b; b = (a << 3) | (b >> 61); a = ~a; } }
+        private void FloatStressLoop(CancellationToken token) { double a = Math.PI; while (!token.IsCancellationRequested) { a += Math.Sin(a); } }
+        private void Sse2StressLoop(CancellationToken token) { var v1 = Vector128.Create(1.1f); var v2 = Vector128.Create(2.2f); while (!token.IsCancellationRequested) { var r1 = Sse2.Add(v1, v2); var r2 = Sse2.Multiply(r1, v1); v1 = Sse2.Subtract(r2, v2); } }
+        private void Avx2StressLoop(CancellationToken token) { var v1 = Vector256.Create(1.1f); var v2 = Vector256.Create(2.2f); while (!token.IsCancellationRequested) { var r1 = Avx2.Add(v1, v2); var r2 = Avx2.Multiply(r1, v1); v1 = Avx2.Subtract(r2, v2); } }
+        private void FmaStressLoop(CancellationToken token) { var v1 = Vector256.Create(1.1f); var v2 = Vector256.Create(2.2f); var v3 = Vector256.Create(3.3f); while (!token.IsCancellationRequested) { v1 = Fma.MultiplyAdd(v2, v3, v1); v2 = Fma.MultiplyAdd(v1, v3, v2); } }
+        private void AesStressLoop(CancellationToken token) { var data = Vector128.Create((byte)1); var key = Vector128.Create((byte)2); while (!token.IsCancellationRequested) { data = Aes.Encrypt(data, key); } }
 
         // --- Циклы для БЕНЧМАРКА (фиксированное число итераций) ---
 
-        private void IntegerBenchmarkLoop(long operations)
-        {
-            long a = 123456789012345;
-            long b = 987654321098765;
-            for (long i = 0; i < operations; i++) { a ^= b; b = (a << 3) | (b >> 61); a = ~a; }
-        }
-
-        private void FloatBenchmarkLoop(long operations)
-        {
-            double a = Math.PI;
-            for (long i = 0; i < operations; i++) { a += Math.Sin(a) + Math.Cos(a) + Math.Tan(a); }
-        }
-
-        private void AvxBenchmarkLoop(long operations)
-        {
-            var vec1 = Vector256.Create(1.1f); var vec2 = Vector256.Create(2.2f);
-            for (long i = 0; i < operations; i++) { var addResult = Avx.Add(vec1, vec2); var mulResult = Avx.Multiply(addResult, vec1); vec1 = Avx.Subtract(mulResult, vec2); }
-        }
+        private void IntegerBenchmarkLoop(long operations) { long a = 1, b = 2; for (long i = 0; i < operations; i++) { a ^= b; b = (a << 3) | (b >> 61); a = ~a; } }
+        private void FloatBenchmarkLoop(long operations) { double a = Math.PI; for (long i = 0; i < operations; i++) { a += Math.Sin(a); } }
+        private void Sse2BenchmarkLoop(long operations) { var v1 = Vector128.Create(1.1f); var v2 = Vector128.Create(2.2f); for (long i = 0; i < operations; i++) { var r1 = Sse2.Add(v1, v2); var r2 = Sse2.Multiply(r1, v1); v1 = Sse2.Subtract(r2, v2); } }
+        private void Avx2BenchmarkLoop(long operations) { var v1 = Vector256.Create(1.1f); var v2 = Vector256.Create(2.2f); for (long i = 0; i < operations; i++) { var r1 = Avx2.Add(v1, v2); var r2 = Avx2.Multiply(r1, v1); v1 = Avx2.Subtract(r2, v2); } }
+        private void FmaBenchmarkLoop(long operations) { var v1 = Vector256.Create(1.1f); var v2 = Vector256.Create(2.2f); var v3 = Vector256.Create(3.3f); for (long i = 0; i < operations; i++) { v1 = Fma.MultiplyAdd(v2, v3, v1); v2 = Fma.MultiplyAdd(v1, v3, v2); } }
+        private void AesBenchmarkLoop(long operations) { var data = Vector128.Create((byte)1); var key = Vector128.Create((byte)2); for (long i = 0; i < operations; i++) { data = Aes.Encrypt(data, key); } }
 
         #endregion
     }
 }
+
