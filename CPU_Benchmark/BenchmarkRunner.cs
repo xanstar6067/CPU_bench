@@ -5,22 +5,33 @@ using System.Runtime.Intrinsics.X86;
 
 namespace CPU_Benchmark
 {
+    /// <summary>
+    /// Отвечает за выполнение вычислительных циклов для бенчмарков и стресс-тестов.
+    /// </summary>
     public class BenchmarkRunner
     {
         #region Constants for Benchmark
 
-        // Базовое количество операций для одного потока для простых тестов.
-        // Выбрано так, чтобы тест длился несколько секунд на среднем процессоре.
+        /// <summary>
+        /// Базовое количество операций для одного потока для простых тестов (целочисленные, с плавающей запятой).
+        /// Выбрано так, чтобы тест длился несколько секунд на среднем процессоре.
+        /// </summary>
         private const long BASE_OPERATIONS_PER_THREAD = 5_000_000_000L;
 
-        // Векторные и специализированные инструкции выполняются намного быстрее, 
-        // поэтому для них нужно больше операций, чтобы тест не закончился мгновенно.
+        /// <summary>
+        /// Увеличенное количество операций для одного потока для тестов, использующих векторные и специализированные инструкции (SSE, AVX, AES).
+        /// Эти инструкции выполняются намного быстрее, поэтому для них нужно больше операций, чтобы тест не закончился мгновенно.
+        /// </summary>
         private const long ADVANCED_OPERATIONS_PER_THREAD = 20_000_000_000L;
 
         #endregion
 
         #region P/Invoke for Thread Affinity
 
+        /// <summary>
+        /// Возвращает идентификатор вызывающего потока.
+        /// </summary>
+        /// <returns>Идентификатор потока.</returns>
         [DllImport("kernel32.dll")]
         private static extern uint GetCurrentThreadId();
 
@@ -29,8 +40,12 @@ namespace CPU_Benchmark
         #region Public Methods for Stress Test
 
         /// <summary>
-        /// Запускает стресс-тест с распределением потоков планировщиком ОС (без привязки).
+        /// Запускает стресс-тест с распределением потоков планировщиком ОС (без привязки к ядрам).
         /// </summary>
+        /// <param name="type">Тип выполняемого теста.</param>
+        /// <param name="threadCount">Количество потоков для запуска.</param>
+        /// <param name="token">Токен для отмены операции.</param>
+        /// <returns>Задача, представляющая асинхронную операцию.</returns>
         public async Task RunStressTestAsync(BenchmarkType type, int threadCount, CancellationToken token)
         {
             await RunTestInternal(type, threadCount, token, forceAffinity: false, isBenchmark: false);
@@ -39,6 +54,10 @@ namespace CPU_Benchmark
         /// <summary>
         /// Запускает стресс-тест с жесткой привязкой каждого потока к своему логическому ядру.
         /// </summary>
+        /// <param name="type">Тип выполняемого теста.</param>
+        /// <param name="threadCount">Количество потоков для запуска.</param>
+        /// <param name="token">Токен для отмены операции.</param>
+        /// <returns>Задача, представляющая асинхронную операцию.</returns>
         public async Task RunStressTestWithAffinityAsync(BenchmarkType type, int threadCount, CancellationToken token)
         {
             await RunTestInternal(type, threadCount, token, forceAffinity: true, isBenchmark: false);
@@ -49,8 +68,11 @@ namespace CPU_Benchmark
         #region Public Methods for Benchmark
 
         /// <summary>
-        /// Запускает бенчмарк с распределением потоков планировщиком ОС (без привязки).
+        /// Запускает бенчмарк с распределением потоков планировщиком ОС (без привязки к ядрам).
         /// </summary>
+        /// <param name="type">Тип выполняемого теста.</param>
+        /// <param name="threadCount">Количество потоков для запуска.</param>
+        /// <returns>Задача, результатом которой является <see cref="BenchmarkResult"/>.</returns>
         public async Task<BenchmarkResult> RunBenchmarkAsync(BenchmarkType type, int threadCount)
         {
             var result = await RunTestInternal(type, threadCount, CancellationToken.None, forceAffinity: false, isBenchmark: true);
@@ -60,6 +82,9 @@ namespace CPU_Benchmark
         /// <summary>
         /// Запускает бенчмарк с жесткой привязкой каждого потока к своему логическому ядру.
         /// </summary>
+        /// <param name="type">Тип выполняемого теста.</param>
+        /// <param name="threadCount">Количество потоков для запуска.</param>
+        /// <returns>Задача, результатом которой является <see cref="BenchmarkResult"/>.</returns>
         public async Task<BenchmarkResult> RunBenchmarkWithAffinityAsync(BenchmarkType type, int threadCount)
         {
             var result = await RunTestInternal(type, threadCount, CancellationToken.None, forceAffinity: true, isBenchmark: true);
@@ -71,8 +96,16 @@ namespace CPU_Benchmark
         #region Core Test Logic
 
         /// <summary>
-        /// Внутренний метод, который выполняет основную логику запуска для обоих режимов.
+        /// Внутренний метод, который выполняет основную логику запуска теста для обоих режимов (бенчмарк и стресс-тест).
         /// </summary>
+        /// <param name="type">Тип выполняемого теста.</param>
+        /// <param name="threadCount">Количество потоков для запуска.</param>
+        /// <param name="token">Токен для отмены (используется только в режиме стресс-теста).</param>
+        /// <param name="forceAffinity">Если true, каждый поток будет привязан к своему логическому ядру.</param>
+        /// <param name="isBenchmark">Если true, запускается режим бенчмарка с фиксированным числом операций; иначе - стресс-тест.</param>
+        /// <returns>
+        /// Задача, результатом которой является <see cref="BenchmarkResult"/>, если <paramref name="isBenchmark"/> равен <c>true</c>; в противном случае <c>null</c>.
+        /// </returns>
         private async Task<BenchmarkResult?> RunTestInternal(BenchmarkType type, int threadCount, CancellationToken token, bool forceAffinity, bool isBenchmark)
         {
             var stopwatch = new Stopwatch();
@@ -127,6 +160,10 @@ namespace CPU_Benchmark
 
         #region Loop Implementations & Helpers
 
+        /// <summary>
+        /// Устанавливает привязку текущего потока к указанному логическому ядру.
+        /// </summary>
+        /// <param name="coreIndex">Индекс логического ядра (от 0).</param>
         private void SetThreadAffinity(int coreIndex)
         {
             try
@@ -139,10 +176,15 @@ namespace CPU_Benchmark
             }
             catch (Exception)
             {
-                // Игнорируем ошибки привязки, если что-то пошло не так
+                // Игнорируем ошибки привязки, если что-то пошло не так (например, недостаточно прав).
+                // Тест продолжит работу без жесткой привязки потока.
             }
         }
 
+        /// <summary>
+        /// Получает объект <see cref="ProcessThread"/> для текущего исполняемого потока.
+        /// </summary>
+        /// <returns>Объект <see cref="ProcessThread"/> или <c>null</c>, если его не удалось найти.</returns>
         private ProcessThread? GetProcessThreadFromCurrentThread()
         {
             uint nativeThreadId = GetCurrentThreadId();
@@ -151,6 +193,11 @@ namespace CPU_Benchmark
                           .FirstOrDefault(pt => pt.Id == nativeThreadId);
         }
 
+        /// <summary>
+        /// Определяет количество операций для указанного типа теста.
+        /// </summary>
+        /// <param name="type">Тип теста.</param>
+        /// <returns>Количество операций для одного потока.</returns>
         private long GetOperationsForTestType(BenchmarkType type)
         {
             switch (type)
@@ -168,6 +215,11 @@ namespace CPU_Benchmark
             }
         }
 
+        /// <summary>
+        /// Выбирает и запускает соответствующий бесконечный цикл для стресс-теста.
+        /// </summary>
+        /// <param name="type">Тип теста.</param>
+        /// <param name="token">Токен для прерывания цикла.</param>
         private void ExecuteStressLoop(BenchmarkType type, CancellationToken token)
         {
             switch (type)
@@ -181,6 +233,11 @@ namespace CPU_Benchmark
             }
         }
 
+        /// <summary>
+        /// Выбирает и запускает соответствующий цикл с фиксированным числом итераций для бенчмарка.
+        /// </summary>
+        /// <param name="type">Тип теста.</param>
+        /// <param name="operations">Количество операций для выполнения.</param>
         private void ExecuteBenchmarkLoop(BenchmarkType type, long operations)
         {
             switch (type)
@@ -194,7 +251,7 @@ namespace CPU_Benchmark
             }
         }
 
-        // --- Циклы для СТРЕСС-ТЕСТА (бесконечные) ---
+        // --- Циклы для СТРЕСС-ТЕСТА (бесконечные, прерываются по токену) ---
 
         private void IntegerStressLoop(CancellationToken token) { long a = 1, b = 2; while (!token.IsCancellationRequested) { a ^= b; b = (a << 3) | (b >> 61); a = ~a; } }
         private void FloatStressLoop(CancellationToken token) { double a = Math.PI; while (!token.IsCancellationRequested) { a += Math.Sin(a); } }
@@ -215,4 +272,3 @@ namespace CPU_Benchmark
         #endregion
     }
 }
-

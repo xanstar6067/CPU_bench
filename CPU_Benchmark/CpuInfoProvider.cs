@@ -5,28 +5,68 @@ using System.Text;
 namespace CPU_Benchmark
 {
     /// <summary>
-    /// Предоставляет подробную информацию о процессоре.
+    /// Предоставляет статическую информацию о центральном процессоре (ЦП),
+    /// такую как имя, количество ядер, тактовая частота и поддерживаемые наборы инструкций.
+    /// Данные собираются один раз при создании экземпляра класса.
     /// </summary>
     public class CpuInfoProvider
     {
+        /// <summary>
+        /// Получает полное наименование процессора.
+        /// </summary>
         public string CpuName { get; }
-        public string Manufacturer { get; }
-        public int PhysicalCoreCount { get; }
-        public int LogicalCoreCount { get; }
-        public uint BaseClockSpeedMhz { get; } // Базовая частота в МГц
-        public uint MaxClockSpeedMhz { get; }  // Максимальная (турбо) частота в МГц
-        public uint L2CacheSizeKb { get; }     // Размер L2 кэша в КБ
-        public uint L3CacheSizeKb { get; }     // Размер L3 кэша в КБ
 
+        /// <summary>
+        /// Получает производителя процессора (например, "GenuineIntel" или "AuthenticAMD").
+        /// </summary>
+        public string Manufacturer { get; }
+
+        /// <summary>
+        /// Получает количество физических ядер процессора.
+        /// </summary>
+        public int PhysicalCoreCount { get; }
+
+        /// <summary>
+        /// Получает общее количество логических процессоров (потоков).
+        /// </summary>
+        public int LogicalCoreCount { get; }
+
+        /// <summary>
+        /// Получает базовую тактовую частоту процессора в МГц.
+        /// </summary>
+        public uint BaseClockSpeedMhz { get; }
+
+        /// <summary>
+        /// Получает максимальную (турбо) тактовую частоту процессора в МГц.
+        /// </summary>
+        public uint MaxClockSpeedMhz { get; }
+
+        /// <summary>
+        /// Получает общий размер кэша L2 в килобайтах.
+        /// </summary>
+        public uint L2CacheSizeKb { get; }
+
+        /// <summary>
+        /// Получает общий размер кэша L3 в килобайтах.
+        /// </summary>
+        public uint L3CacheSizeKb { get; }
+
+        /// <summary>
+        /// Получает готовую, отформатированную строку со всей информацией о процессоре.
+        /// </summary>
         public string FullCpuInfoString { get; }
 
+        /// <summary>
+        /// Инициализирует новый экземпляр класса <see cref="CpuInfoProvider"/>
+        /// и выполняет сбор информации о процессоре с помощью WMI.
+        /// </summary>
         public CpuInfoProvider()
         {
-            // Установка значений по умолчанию
+            // Установка значений по умолчанию на случай, если WMI-запрос завершится неудачей.
             CpuName = "N/A";
             Manufacturer = "N/A";
             PhysicalCoreCount = 0;
-            LogicalCoreCount = Environment.ProcessorCount;
+            LogicalCoreCount = Environment.ProcessorCount; // Это значение доступно всегда.
             BaseClockSpeedMhz = 0;
             MaxClockSpeedMhz = 0;
             L2CacheSizeKb = 0;
@@ -42,18 +82,27 @@ namespace CPU_Benchmark
                     PhysicalCoreCount = Convert.ToInt32(obj["NumberOfCores"]);
                     LogicalCoreCount = Convert.ToInt32(obj["NumberOfLogicalProcessors"]);
                     MaxClockSpeedMhz = Convert.ToUInt32(obj["MaxClockSpeed"]);
-                    // CurrentClockSpeed может быть более релевантным для базовой частоты, чем Description
+                    // Свойство CurrentClockSpeed часто дает более точное значение базовой частоты, 
+                    // чем парсинг строки Description или Name.
                     BaseClockSpeedMhz = Convert.ToUInt32(obj["CurrentClockSpeed"]);
                     L2CacheSizeKb = Convert.ToUInt32(obj["L2CacheSize"]);
                     L3CacheSizeKb = Convert.ToUInt32(obj["L3CacheSize"]);
-                    break;
+                    break; // Нам нужна информация только о первом (основном) процессоре.
                 }
             }
-            catch { /* Игнорируем ошибки WMI */ }
+            catch
+            {
+                // Сбор данных через WMI может завершиться неудачей (например, из-за прав доступа или повреждения службы).
+                // В этом случае приложение продолжит работу с данными по умолчанию ("N/A"), не прерывая работу.
+            }
 
             FullCpuInfoString = BuildCpuInfoString();
         }
 
+        /// <summary>
+        /// Формирует полную, многострочную строку с информацией о процессоре для отображения в UI.
+        /// </summary>
+        /// <returns>Отформатированная строка с характеристиками ЦП.</returns>
         private string BuildCpuInfoString()
         {
             var sb = new StringBuilder();
@@ -71,7 +120,6 @@ namespace CPU_Benchmark
             sb.AppendLine("Поддерживаемые наборы инструкций (x86/x64)");
             sb.AppendLine("-----------------------------------------");
 
-            // ... (остальная часть с инструкциями остается без изменений)
             sb.AppendLine($"SSE:        \t{Sse.IsSupported}");
             sb.AppendLine($"SSE2:       \t{Sse2.IsSupported}");
             sb.AppendLine($"SSE3:       \t{Sse3.IsSupported}");

@@ -3,32 +3,83 @@ using System.Text;
 
 namespace CPU_Benchmark
 {
+    /// <summary>
+    /// Главная форма приложения, отвечающая за отображение информации о системе,
+    /// управление настройками тестов и запуск процессов бенчмаркинга и стресс-тестирования.
+    /// </summary>
     public partial class CPU_Benchmark : Form
     {
         #region Fields & Class Members
 
+        /// <summary>
+        /// Предоставляет статическую информацию о процессоре (имя, ядра, кэш и т.д.).
+        /// </summary>
         private readonly CpuInfoProvider _cpuInfoProvider;
+
+        /// <summary>
+        /// Выполняет непосредственно вычислительные задачи бенчмарка и стресс-теста.
+        /// </summary>
         private readonly BenchmarkRunner _benchmarkRunner;
+
+        /// <summary>
+        /// Отвечает за получение динамических данных с сенсоров (температура, загрузка, мощность).
+        /// </summary>
         private readonly SystemMonitor _systemMonitor;
+
+        /// <summary>
+        /// Словарь для сопоставления типа теста (enum) с его читаемым названием для UI.
+        /// </summary>
         private readonly Dictionary<BenchmarkType, string> _testTypes;
+
+        /// <summary>
+        /// Источник токенов для отмены асинхронной операции (используется для остановки стресс-теста).
+        /// </summary>
         private CancellationTokenSource? _cancellationTokenSource;
+
+        /// <summary>
+        /// Таймер для периодического обновления динамической информации (температура, загрузка) в UI.
+        /// </summary>
         private readonly System.Windows.Forms.Timer _uiUpdateTimer;
+
+        /// <summary>
+        /// Кэшированная строка со статической информацией о процессоре, чтобы не генерировать ее при каждом обновлении.
+        /// </summary>
         private string _staticCpuInfo = string.Empty;
-        // Флаг, предотвращающий одновременный запуск нескольких обновлений
+
+        /// <summary>
+        /// Флаг, предотвращающий одновременный запуск нескольких асинхронных обновлений информации о системе.
+        /// </summary>
         private bool _isUpdatingInfo = false;
 
         #endregion
 
-        // Новая простая структура для передачи данных между потоками
+        /// <summary>
+        /// Структура для передачи собранных метрик системы из фонового потока в основной поток UI.
+        /// </summary>
         private readonly record struct SystemMetrics(
+            /// <summary>
+            /// Температура ЦП в виде отформатированной строки.
+            /// </summary>
             string CpuTemp,
+            /// <summary>
+            /// Общая загрузка ЦП в виде отформатированной строки.
+            /// </summary>
             string CpuLoad,
+            /// <summary>
+            /// Энергопотребление ЦП в виде отформатированной строки.
+            /// </summary>
             string CpuPower,
+            /// <summary>
+            /// Список информации о накопителях.
+            /// </summary>
             List<StorageInfo> StorageDevices
         );
 
         #region Constructor & Form Initialization
 
+        /// <summary>
+        /// Инициализирует новый экземпляр главной формы <see cref="CPU_Benchmark"/>.
+        /// </summary>
         public CPU_Benchmark()
         {
             InitializeComponent();
@@ -52,11 +103,15 @@ namespace CPU_Benchmark
             btnStopTest.Click += OnStopTestClick;
         }
 
+        /// <summary>
+        /// Обработчик события загрузки формы. Инициализирует системный монитор,
+        /// получает статическую информацию о ЦП, настраивает элементы управления и запускает таймер обновления UI.
+        /// </summary>
         private void OnFormLoad(object? sender, EventArgs e)
         {
             _systemMonitor.Initialize();
             _staticCpuInfo = _cpuInfoProvider.FullCpuInfoString;
-            // Запускаем первое асинхронное обновление
+            // Запускаем первое асинхронное обновление сразу, не дожидаясь тика таймера.
             OnUiUpdateTimerTick(this, EventArgs.Empty);
             _uiUpdateTimer.Start();
             numericThreads.Maximum = _cpuInfoProvider.LogicalCoreCount > 0 ? _cpuInfoProvider.LogicalCoreCount : 1;
@@ -64,6 +119,9 @@ namespace CPU_Benchmark
             PopulateAvailableTests();
         }
 
+        /// <summary>
+        /// Обработчик события закрытия формы. Останавливает таймер и освобождает ресурсы системного монитора.
+        /// </summary>
         private void OnFormClosing(object? sender, FormClosingEventArgs e)
         {
             _uiUpdateTimer.Stop();
@@ -74,6 +132,11 @@ namespace CPU_Benchmark
 
         #region Test Control Event Handlers
 
+        /// <summary>
+        /// Обработчик нажатия на кнопку "Начать тест". Собирает настройки из UI,
+        /// переключает состояние интерфейса и запускает соответствующий тест
+        /// (бенчмарк или стресс-тест) в зависимости от выбора пользователя.
+        /// </summary>
         private async void OnStartTestClick(object? sender, EventArgs e)
         {
             if (comboTestType.SelectedValue == null)
@@ -121,6 +184,9 @@ namespace CPU_Benchmark
             }
         }
 
+        /// <summary>
+        /// Обработчик нажатия на кнопку "Стоп". Отправляет сигнал отмены для запущенного стресс-теста.
+        /// </summary>
         private void OnStopTestClick(object? sender, EventArgs e)
         {
             _cancellationTokenSource?.Cancel();
@@ -130,6 +196,10 @@ namespace CPU_Benchmark
 
         #region UI Helper Methods
 
+        /// <summary>
+        /// Обработчик тика таймера UI. Асинхронно запрашивает свежие метрики системы
+        /// и обновляет текстовое поле с информацией.
+        /// </summary>
         private async void OnUiUpdateTimerTick(object? sender, EventArgs e)
         {
             if (_isUpdatingInfo) return;
@@ -146,6 +216,11 @@ namespace CPU_Benchmark
             }
         }
 
+        /// <summary>
+        /// Асинхронно собирает динамические метрики системы (температура, загрузка, мощность) в фоновом потоке,
+        /// чтобы не блокировать UI.
+        /// </summary>
+        /// <returns>Задача, результатом которой является структура <see cref="SystemMetrics"/> с актуальными данными.</returns>
         private Task<SystemMetrics> FetchSystemMetricsAsync()
         {
             return Task.Run(() =>
@@ -163,6 +238,11 @@ namespace CPU_Benchmark
             });
         }
 
+        /// <summary>
+        /// Обновляет текстовое поле <see cref="txtCpuInfo"/> на основе полученных метрик,
+        /// комбинируя статическую и динамическую информацию.
+        /// </summary>
+        /// <param name="metrics">Собранные метрики системы.</param>
         private void UpdateInfoTextBox(SystemMetrics metrics)
         {
             var sb = new StringBuilder();
@@ -189,6 +269,10 @@ namespace CPU_Benchmark
             txtCpuInfo.Text = sb.ToString();
         }
 
+        /// <summary>
+        /// Заполняет выпадающий список <see cref="comboTestType"/> только теми тестами,
+        /// которые поддерживаются текущим процессором.
+        /// </summary>
         private void PopulateAvailableTests()
         {
             var supportedTests = new List<KeyValuePair<BenchmarkType, string>>();
@@ -204,6 +288,12 @@ namespace CPU_Benchmark
             comboTestType.ValueMember = "Key";
         }
 
+        /// <summary>
+        /// Проверяет, поддерживается ли указанный тип теста текущей аппаратной конфигурацией
+        /// (например, наличие набора инструкций AVX2).
+        /// </summary>
+        /// <param name="type">Тип теста для проверки.</param>
+        /// <returns><c>true</c>, если тест поддерживается; иначе <c>false</c>.</returns>
         private bool IsTestTypeSupported(BenchmarkType type)
         {
             return type switch
@@ -218,6 +308,12 @@ namespace CPU_Benchmark
             };
         }
 
+        /// <summary>
+        /// Управляет состоянием (включено/выключено) элементов управления на форме
+        /// в зависимости от того, запущен ли тест.
+        /// </summary>
+        /// <param name="isTestRunning">Значение <c>true</c>, если тест в данный момент выполняется.</param>
+        /// <param name="isBenchmarkMode">Значение <c>true</c>, если запущен бенчмарк (влияет на доступность кнопки "Стоп").</param>
         private void SetUiState(bool isTestRunning, bool isBenchmarkMode)
         {
             if (isTestRunning)
@@ -236,6 +332,7 @@ namespace CPU_Benchmark
             groupBoxSettings.Enabled = !isTestRunning;
             groupBoxMode.Enabled = !isTestRunning;
             btnStartTest.Enabled = !isTestRunning;
+            // Кнопка "Стоп" доступна только во время стресс-теста, т.к. бенчмарк нельзя прервать.
             btnStopTest.Enabled = isTestRunning && !isBenchmarkMode;
         }
 
