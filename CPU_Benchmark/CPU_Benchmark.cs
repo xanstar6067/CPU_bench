@@ -93,7 +93,8 @@ namespace CPU_Benchmark
                 { BenchmarkType.VectorSse2, "Векторные операции (SSE2)" },
                 { BenchmarkType.VectorAvx2, "Векторные операции (AVX2)" },
                 { BenchmarkType.VectorFma, "Векторные операции (FMA)" },
-                { BenchmarkType.CryptoAes, "Криптография (AES)" }
+                { BenchmarkType.CryptoAes, "Криптография (AES)" },
+                { BenchmarkType.PowerStressAvxFma, "Максимальная нагрузка (AVX+FMA)" }
             };
             _uiUpdateTimer = new System.Windows.Forms.Timer { Interval = 1000 };
             _uiUpdateTimer.Tick += OnUiUpdateTimerTick;
@@ -303,6 +304,7 @@ namespace CPU_Benchmark
                 BenchmarkType.VectorSse2 => Sse2.IsSupported,
                 BenchmarkType.VectorAvx2 => Avx2.IsSupported,
                 BenchmarkType.VectorFma => Fma.IsSupported,
+                BenchmarkType.PowerStressAvxFma => Avx2.IsSupported && Fma.IsSupported,
                 BenchmarkType.CryptoAes => Aes.IsSupported,
                 _ => false
             };

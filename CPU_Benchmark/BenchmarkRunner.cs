@@ -210,6 +210,7 @@ namespace CPU_Benchmark
                 case BenchmarkType.VectorAvx2:
                 case BenchmarkType.VectorFma:
                 case BenchmarkType.CryptoAes:
+                case BenchmarkType.PowerStressAvxFma: // Наш новый тест тоже "продвинутый"
                 default:
                     return ADVANCED_OPERATIONS_PER_THREAD;
             }
@@ -230,6 +231,7 @@ namespace CPU_Benchmark
                 case BenchmarkType.VectorAvx2: Avx2StressLoop(token); break;
                 case BenchmarkType.VectorFma: FmaStressLoop(token); break;
                 case BenchmarkType.CryptoAes: AesStressLoop(token); break;
+                case BenchmarkType.PowerStressAvxFma: PowerStressLoop(token); break;
             }
         }
 
@@ -248,6 +250,7 @@ namespace CPU_Benchmark
                 case BenchmarkType.VectorAvx2: Avx2BenchmarkLoop(operations); break;
                 case BenchmarkType.VectorFma: FmaBenchmarkLoop(operations); break;
                 case BenchmarkType.CryptoAes: AesBenchmarkLoop(operations); break;
+                case BenchmarkType.PowerStressAvxFma: PowerStressBenchmarkLoop(operations); break;
             }
         }
 
@@ -260,6 +263,24 @@ namespace CPU_Benchmark
         private void FmaStressLoop(CancellationToken token) { var v1 = Vector256.Create(1.1f); var v2 = Vector256.Create(2.2f); var v3 = Vector256.Create(3.3f); while (!token.IsCancellationRequested) { v1 = Fma.MultiplyAdd(v2, v3, v1); v2 = Fma.MultiplyAdd(v1, v3, v2); } }
         private void AesStressLoop(CancellationToken token) { var data = Vector128.Create((byte)1); var key = Vector128.Create((byte)2); while (!token.IsCancellationRequested) { data = Aes.Encrypt(data, key); } }
 
+        /// <summary>
+        /// Выполняет максимально интенсивный стресс-тест с использованием инструкций AVX и FMA
+        /// для достижения пикового энергопотребления и тепловыделения процессора.
+        /// </summary>
+        private void PowerStressLoop(CancellationToken token)
+        {
+            var v1 = Vector256.Create(1.1f); var v2 = Vector256.Create(2.2f);
+            var v3 = Vector256.Create(3.3f); var v4 = Vector256.Create(4.4f);
+            var v5 = Vector256.Create(5.5f); var v6 = Vector256.Create(6.6f);
+            while (!token.IsCancellationRequested)
+            {
+                v1 = Fma.MultiplyAdd(v2, v3, v1); v2 = Fma.MultiplyAdd(v4, v5, v2);
+                v3 = Fma.MultiplyAdd(v6, v1, v3); v4 = Fma.MultiplyAdd(v1, v2, v4);
+                v5 = Fma.MultiplyAdd(v3, v4, v5); v6 = Fma.MultiplyAdd(v5, v1, v6);
+                v1 = Avx.Divide(v1, v2); v3 = Avx.Add(v3, v5);
+            }
+        }
+
         // --- Циклы для БЕНЧМАРКА (фиксированное число итераций) ---
 
         private void IntegerBenchmarkLoop(long operations) { long a = 1, b = 2; for (long i = 0; i < operations; i++) { a ^= b; b = (a << 3) | (b >> 61); a = ~a; } }
@@ -268,6 +289,23 @@ namespace CPU_Benchmark
         private void Avx2BenchmarkLoop(long operations) { var v1 = Vector256.Create(1.1f); var v2 = Vector256.Create(2.2f); for (long i = 0; i < operations; i++) { var r1 = Avx2.Add(v1, v2); var r2 = Avx2.Multiply(r1, v1); v1 = Avx2.Subtract(r2, v2); } }
         private void FmaBenchmarkLoop(long operations) { var v1 = Vector256.Create(1.1f); var v2 = Vector256.Create(2.2f); var v3 = Vector256.Create(3.3f); for (long i = 0; i < operations; i++) { v1 = Fma.MultiplyAdd(v2, v3, v1); v2 = Fma.MultiplyAdd(v1, v3, v2); } }
         private void AesBenchmarkLoop(long operations) { var data = Vector128.Create((byte)1); var key = Vector128.Create((byte)2); for (long i = 0; i < operations; i++) { data = Aes.Encrypt(data, key); } }
+
+        /// <summary>
+        /// Выполняет максимально интенсивный бенчмарк-тест с использованием инструкций AVX и FMA.
+        /// </summary>
+        private void PowerStressBenchmarkLoop(long operations)
+        {
+            var v1 = Vector256.Create(1.1f); var v2 = Vector256.Create(2.2f);
+            var v3 = Vector256.Create(3.3f); var v4 = Vector256.Create(4.4f);
+            var v5 = Vector256.Create(5.5f); var v6 = Vector256.Create(6.6f);
+            for (long i = 0; i < operations; i++)
+            {
+                v1 = Fma.MultiplyAdd(v2, v3, v1); v2 = Fma.MultiplyAdd(v4, v5, v2);
+                v3 = Fma.MultiplyAdd(v6, v1, v3); v4 = Fma.MultiplyAdd(v1, v2, v4);
+                v5 = Fma.MultiplyAdd(v3, v4, v5); v6 = Fma.MultiplyAdd(v5, v1, v6);
+                v1 = Avx.Divide(v1, v2); v3 = Avx.Add(v3, v5);
+            }
+        }
 
         #endregion
     }

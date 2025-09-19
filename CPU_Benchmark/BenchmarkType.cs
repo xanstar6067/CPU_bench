@@ -34,6 +34,10 @@
         /// <summary>
         /// Тест, использующий инструкции аппаратного ускорения шифрования AES.
         /// </summary>
-        CryptoAes
+        CryptoAes,
+        /// <summary>
+        /// Тест, использующий инструкции AVX+FMA.
+        /// </summary>
+        PowerStressAvxFma
     }
 }
