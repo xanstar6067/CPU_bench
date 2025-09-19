@@ -5,54 +5,55 @@ using System.Text;
 namespace CPU_Benchmark
 {
     /// <summary>
-    /// Предоставляет информацию о процессоре: имя, количество ядер и поддерживаемые наборы инструкций.
+    /// Предоставляет подробную информацию о процессоре.
     /// </summary>
     public class CpuInfoProvider
     {
         public string CpuName { get; }
+        public string Manufacturer { get; }
         public int PhysicalCoreCount { get; }
         public int LogicalCoreCount { get; }
+        public uint BaseClockSpeedMhz { get; } // Базовая частота в МГц
+        public uint MaxClockSpeedMhz { get; }  // Максимальная (турбо) частота в МГц
+        public uint L2CacheSizeKb { get; }     // Размер L2 кэша в КБ
+        public uint L3CacheSizeKb { get; }     // Размер L3 кэша в КБ
 
-        /// <summary>
-        /// Полная информация о процессоре в виде отформатированной строки.
-        /// </summary>
         public string FullCpuInfoString { get; }
 
-        /// <summary>
-        /// Инициализирует новый экземпляр класса, собирая информацию о системе.
-        /// </summary>
         public CpuInfoProvider()
         {
-            // Устанавливаем значения по умолчанию на случай сбоя WMI
+            // Установка значений по умолчанию
             CpuName = "N/A";
+            Manufacturer = "N/A";
             PhysicalCoreCount = 0;
-            LogicalCoreCount = Environment.ProcessorCount; // Старый надежный способ как fallback
+            LogicalCoreCount = Environment.ProcessorCount;
+            BaseClockSpeedMhz = 0;
+            MaxClockSpeedMhz = 0;
+            L2CacheSizeKb = 0;
+            L3CacheSizeKb = 0;
 
             try
             {
-                // Используем WMI для получения детальной информации о процессоре
                 var searcher = new ManagementObjectSearcher("select * from Win32_Processor");
-                foreach (var obj in searcher.Get())
+                foreach (ManagementObject obj in searcher.Get())
                 {
                     CpuName = obj["Name"]?.ToString()?.Trim() ?? "N/A";
+                    Manufacturer = obj["Manufacturer"]?.ToString()?.Trim() ?? "N/A";
                     PhysicalCoreCount = Convert.ToInt32(obj["NumberOfCores"]);
                     LogicalCoreCount = Convert.ToInt32(obj["NumberOfLogicalProcessors"]);
-                    break; // В большинстве систем один объект процессора
+                    MaxClockSpeedMhz = Convert.ToUInt32(obj["MaxClockSpeed"]);
+                    // CurrentClockSpeed может быть более релевантным для базовой частоты, чем Description
+                    BaseClockSpeedMhz = Convert.ToUInt32(obj["CurrentClockSpeed"]);
+                    L2CacheSizeKb = Convert.ToUInt32(obj["L2CacheSize"]);
+                    L3CacheSizeKb = Convert.ToUInt32(obj["L3CacheSize"]);
+                    break;
                 }
             }
-            catch
-            {
-                // Если WMI не сработал, останутся значения по умолчанию
-            }
+            catch { /* Игнорируем ошибки WMI */ }
 
-            // И формируем информационную строку
             FullCpuInfoString = BuildCpuInfoString();
         }
 
-        /// <summary>
-        /// Собирает всю информацию о ЦП и форматирует её в строку.
-        /// </summary>
-        /// <returns>Отформатированная строка с информацией о ЦП.</returns>
         private string BuildCpuInfoString()
         {
             var sb = new StringBuilder();
@@ -60,14 +61,17 @@ namespace CPU_Benchmark
             sb.AppendLine("Процессор (ЦП)");
             sb.AppendLine("-----------------------------------------");
             sb.AppendLine($"Название:         \t{CpuName}");
+            sb.AppendLine($"Производитель:    \t{Manufacturer}");
+            sb.AppendLine($"Базовая частота:  \t{BaseClockSpeedMhz} MHz");
+            sb.AppendLine($"Макс. частота:    \t{MaxClockSpeedMhz} MHz");
+            sb.AppendLine($"Кэш L2/L3:        \t{L2CacheSizeKb} KB / {L3CacheSizeKb} KB");
             sb.AppendLine($"Физические ядра:    \t{PhysicalCoreCount}");
             sb.AppendLine($"Логические потоки:\t{LogicalCoreCount}");
             sb.AppendLine();
             sb.AppendLine("Поддерживаемые наборы инструкций (x86/x64)");
             sb.AppendLine("-----------------------------------------");
 
-            // Использование \t (табуляция) поможет выровнять вывод 
-            // в TextBox, если у него моноширинный шрифт (у вас Consolas).
+            // ... (остальная часть с инструкциями остается без изменений)
             sb.AppendLine($"SSE:        \t{Sse.IsSupported}");
             sb.AppendLine($"SSE2:       \t{Sse2.IsSupported}");
             sb.AppendLine($"SSE3:       \t{Sse3.IsSupported}");
@@ -78,9 +82,6 @@ namespace CPU_Benchmark
             sb.AppendLine($"AVX2:       \t{Avx2.IsSupported}");
             sb.AppendLine($"FMA:        \t{Fma.IsSupported}");
             sb.AppendLine($"AES:        \t{Aes.IsSupported}");
-            sb.AppendLine($"BMI1:       \t{Bmi1.IsSupported}");
-            sb.AppendLine($"BMI2:       \t{Bmi2.IsSupported}");
-            sb.AppendLine($"PCLMULQDQ:  \t{Pclmulqdq.IsSupported}");
 
             return sb.ToString();
         }
