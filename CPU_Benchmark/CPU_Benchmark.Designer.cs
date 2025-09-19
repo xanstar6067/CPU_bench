@@ -40,6 +40,7 @@
             btnStopTest = new Button();
             btnStartTest = new Button();
             groupBoxSettings = new GroupBox();
+            chkForceAffinity = new CheckBox();
             numericThreads = new NumericUpDown();
             lblThreads = new Label();
             comboTestType = new ComboBox();
@@ -110,9 +111,9 @@
             groupBoxResults.Controls.Add(txtResults);
             groupBoxResults.Controls.Add(lblStatus);
             groupBoxResults.Controls.Add(progressBarTest);
-            groupBoxResults.Location = new Point(9, 311);
+            groupBoxResults.Location = new Point(9, 348);
             groupBoxResults.Name = "groupBoxResults";
-            groupBoxResults.Size = new Size(296, 235);
+            groupBoxResults.Size = new Size(296, 198);
             groupBoxResults.TabIndex = 2;
             groupBoxResults.TabStop = false;
             groupBoxResults.Text = "Выполнение и результат";
@@ -125,7 +126,7 @@
             txtResults.Name = "txtResults";
             txtResults.ReadOnly = true;
             txtResults.ScrollBars = ScrollBars.Vertical;
-            txtResults.Size = new Size(266, 133);
+            txtResults.Size = new Size(266, 96);
             txtResults.TabIndex = 2;
             // 
             // lblStatus
@@ -150,7 +151,7 @@
             groupBoxControls.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             groupBoxControls.Controls.Add(btnStopTest);
             groupBoxControls.Controls.Add(btnStartTest);
-            groupBoxControls.Location = new Point(9, 178);
+            groupBoxControls.Location = new Point(9, 215);
             groupBoxControls.Name = "groupBoxControls";
             groupBoxControls.Size = new Size(296, 127);
             groupBoxControls.TabIndex = 1;
@@ -183,16 +184,29 @@
             // groupBoxSettings
             // 
             groupBoxSettings.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            groupBoxSettings.Controls.Add(chkForceAffinity);
             groupBoxSettings.Controls.Add(numericThreads);
             groupBoxSettings.Controls.Add(lblThreads);
             groupBoxSettings.Controls.Add(comboTestType);
             groupBoxSettings.Controls.Add(lblTestType);
             groupBoxSettings.Location = new Point(9, 9);
             groupBoxSettings.Name = "groupBoxSettings";
-            groupBoxSettings.Size = new Size(296, 163);
+            groupBoxSettings.Size = new Size(296, 200);
             groupBoxSettings.TabIndex = 0;
             groupBoxSettings.TabStop = false;
             groupBoxSettings.Text = "Настройки теста";
+            // 
+            // chkForceAffinity
+            // 
+            chkForceAffinity.AutoSize = true;
+            chkForceAffinity.Checked = true;
+            chkForceAffinity.CheckState = CheckState.Checked;
+            chkForceAffinity.Location = new Point(15, 153);
+            chkForceAffinity.Name = "chkForceAffinity";
+            chkForceAffinity.Size = new Size(244, 19);
+            chkForceAffinity.TabIndex = 4;
+            chkForceAffinity.Text = "Привязать потоки к ядрам (1 поток = 1 ядро)";
+            chkForceAffinity.UseVisualStyleBackColor = true;
             // 
             // numericThreads
             // 
@@ -272,6 +286,6 @@
         private ProgressBar progressBarTest;
         private Label lblStatus;
         private TextBox txtResults;
+        private CheckBox chkForceAffinity;
     }
 }
-
