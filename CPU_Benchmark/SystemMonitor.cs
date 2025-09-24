@@ -100,6 +100,10 @@ namespace CPU_Benchmark
         /// <returns>Температура в градусах Цельсия или <c>null</c>, если подходящий сенсор не найден.</returns>
         public float? GetCpuTemperature()
         {
+
+            Debug_PrintAllCpuSensors(); //отладочный вывод. удалить потом из проекта.
+
+
             if (_cpu == null) return null;
             UpdateHardware(_cpu);
 
