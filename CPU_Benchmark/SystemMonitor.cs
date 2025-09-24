@@ -95,7 +95,7 @@ namespace CPU_Benchmark
 
         /// <summary>
         /// Получает температуру процессора, выполняя поиск по списку приоритетных сенсоров
-        /// для лучшей совместимости (например, с процессорами Ryzen X3D).
+        /// для лучшей совместимости (например, с процессорами Ryzen X3D и новее).
         /// </summary>
         /// <returns>Температура в градусах Цельсия или <c>null</c>, если подходящий сенсор не найден.</returns>
         public float? GetCpuTemperature()
@@ -103,8 +103,17 @@ namespace CPU_Benchmark
             if (_cpu == null) return null;
             UpdateHardware(_cpu);
 
-            // Ищем сенсор по списку приоритетных имен. Это решает проблему с Ryzen X3D.
-            var priorityNames = new[] { "CPU Package", "Core (Tj)", "CPU CCD1 (Tdie)" };
+            // Обновленный список приоритетных имен сенсоров.
+            // "CPU (Tctl/Tdie)" - основной датчик для современных AMD Ryzen.
+            // Остальные добавлены для совместимости с Intel и старыми процессорами.
+            var priorityNames = new[]
+            {
+                "CPU (Tctl/Tdie)", // Наиболее вероятный датчик для Zen 4/5
+                "CPU Package",     // Для совместимости с Intel и старыми AMD
+                "CPU Die (average)", // Средняя температура кристалла, хороший запасной вариант
+                "CPU CCD1 (Tdie)", // Температура первого чиплета
+                "Core (Tj)"        // Температура перехода (Tjunction)
+            };
 
             foreach (var name in priorityNames)
             {
@@ -117,8 +126,10 @@ namespace CPU_Benchmark
                 }
             }
 
-            // Если ничего не нашли, возвращаем null
-            return null;
+            // Если ничего не нашли в приоритетном списке, попробуем найти любой другой датчик температуры.
+            // Это запасной вариант на случай нестандартного именования.
+            var fallbackSensor = _cpu.Sensors.FirstOrDefault(s => s.SensorType == SensorType.Temperature);
+            return fallbackSensor?.Value;
         }
 
         /// <summary>
@@ -181,15 +192,48 @@ namespace CPU_Benchmark
         }
 
         /// <summary>
+        /// (Для отладки) Выводит в консоль список всех доступных сенсоров для ЦП.
+        /// Полезно для поиска правильных имен сенсоров на новом или неизвестном оборудовании.
+        /// </summary>
+        public void Debug_PrintAllCpuSensors()
+        {
+            if (_cpu == null)
+            {
+                Console.WriteLine("Отладка: Процессор не был найден.");
+                return;
+            }
+            UpdateHardware(_cpu);
+
+            Console.WriteLine($"--- Доступные сенсоры для '{_cpu.Name}' ---");
+            foreach (var sensor in _cpu.Sensors)
+            {
+                // Выводим только те сенсоры, у которых есть значение
+                if (sensor.Value.HasValue)
+                {
+                    Console.WriteLine($"Имя: '{sensor.Name}', Тип: {sensor.SensorType}, Значение: {sensor.Value.Value}");
+                }
+                else
+                {
+                    Console.WriteLine($"Имя: '{sensor.Name}', Тип: {sensor.SensorType}, Значение: (недоступно)");
+                }
+            }
+            Console.WriteLine("-------------------------------------------------");
+        }
+
+        /// <summary>
         /// Освобождает ресурсы, используемые <see cref="SystemMonitor"/>,
         /// закрывая соединение с LibreHardwareMonitor.
         /// </summary>
         public void Dispose()
         {
-            try { 
+            try
+            {
                 _computer.Close();
-            } 
-            catch { }
+            }
+            catch
+            {
+                // Игнорируем ошибки при закрытии
+            }
         }
     }
 }
